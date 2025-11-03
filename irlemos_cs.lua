@@ -41,6 +41,8 @@ MaFast_period = input(12, "Ma Fast period", input.integer, 1, 1000, 1)
 MaSlow_period = input(26, "Ma Slow period", input.integer, 1, 1000, 1)
 Signal_period = input(9, "Signal period", input.integer, 1, 1000, 1)
 MaTrend_period = input(200, "Trend Filter MA period", input.integer, 1, 1000, 1)
+Wick_multiplier = input(1.5, "Multiplicador do Pavio", input.float, 0.5, 5, 0.1)
+
 
 -- SEÇÃO 3: CÁLCULOS DOS INDICADORES
 local macd_line = ema(close, MaFast_period) - ema(close, MaSlow_period)
@@ -60,6 +62,16 @@ hline(highest(200)[1], "HH200", color, 1); hline(lowest(200)[1], "LL200", color,
 
 
 -- SEÇÃO 5: LÓGICA DE SINAIS E PLOTAGEM VISUAL
+-- Analisamos a vela anterior ([1]), pois é a vela fechada que confirmou o sinal.
+local candleBody = abs(open[1] - close[1])
+local upperWick = high[1] - max(open[1], close[1])
+local lowerWick = min(open[1], close[1]) - low[1]
+
+-- Condição de retração de compra: pavio inferior é significativamente maior que o corpo.
+local bullishRetraction = lowerWick > (candleBody * Wick_multiplier) and candleBody > 0
+
+-- Condição de retração de venda: pavio superior é significativamente maior que o corpo.
+local bearishRetraction = upperWick > (candleBody * Wick_multiplier) and candleBody > 0
 
 local buyCondition = macd_line > signal_line and macd_line[1] <= signal_line[1]
 local sellCondition = macd_line < signal_line and macd_line[1] >= signal_line[1]
@@ -72,6 +84,10 @@ local strongSellCondition = sellCondition and close < trend_ma
 local normalBuyCondition = buyCondition and not strongBuyCondition
 local normalSellCondition = sellCondition and not strongSellCondition
 
+-- Condições "Máximas" (Tendência + Momento + Ação do Preço)
+local maxBuyCondition = strongBuyCondition and bullishRetraction
+local maxSellCondition = strongSellCondition and bearishRetraction
+
 -- Plotagem dos Sinais Fortes
 plot_shape(strongBuyCondition, "compra-sinal-forte", shape_style.triangleup, shape_size.huge, "lime", shape_location.belowbar, -1, "", "white")
 plot_shape(strongSellCondition, "venda-sinal-forte", shape_style.triangledown, shape_size.huge, "fuchsia", shape_location.abovebar, -1, "", "white")
@@ -79,6 +95,10 @@ plot_shape(strongSellCondition, "venda-sinal-forte", shape_style.triangledown, s
 -- Plotagem dos Sinais Normais
 plot_shape(normalBuyCondition, "compra-normal", shape_style.triangleup, shape_size.normal, "green", shape_location.belowbar, -1, "", "white")
 plot_shape(normalSellCondition, "venda-normal", shape_style.triangledown, shape_size.normal, "red", shape_location.abovebar, -1, "", "white")
+
+-- Plotagem do SINAL MÁXIMO (Diamante de Confirmação)
+plot_shape(maxBuyCondition, "compra-maxima", shape_style.arrowup, shape_size.normal, "yellow", shape_location.belowbar, -1, "", "white")
+plot_shape(maxSellCondition, "venda-maxima", shape_style.arrowdown, shape_size.normal, "yellow", shape_location.abovebar, -1, "", "white")
 
 
 -- SEÇÃO 6: ANÁLISE DE MÚLTIPLOS TEMPOS GRÁFICOS (MTF)
